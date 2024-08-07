@@ -1,4 +1,5 @@
 import java.util.*;
+import java.util.concurrent.*;
 
 public class Main {
 
@@ -8,11 +9,12 @@ public class Main {
             texts[i] = generateText("aab", 30_000);
         }
 
-        List<Thread> threads = new ArrayList<>();
+        List<Future<Integer>> futures = new ArrayList<>();
+        ExecutorService threadPool = Executors.newFixedThreadPool(8);
 
         long startTs = System.currentTimeMillis(); // start time
         for (String text : texts) {
-            Thread thread = new Thread(() -> {
+            Callable<Integer> myCallable = () -> {
                 int maxSize = 0;
                 for (int i = 0; i < text.length(); i++) {
                     for (int j = 0; j < text.length(); j++) {
@@ -32,16 +34,25 @@ public class Main {
                     }
                 }
                 System.out.println(text.substring(0, 100) + " -> " + maxSize);
-            });
-            threads.add(thread);
-            thread.start();
+                return maxSize;
+            };
+            futures.add(threadPool.submit(myCallable));
         }
-        for (Thread thread : threads) {
-            thread.join(); // зависаем, ждём когда поток объект которого лежит в thread завершится
+        int max  = 0;
+        for (Future<Integer> future : futures) {
+            try {
+                int current = future.get();
+                if (max  < current) {
+                    max = current;
+                }
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
         }
         long endTs = System.currentTimeMillis(); // end time
 
         System.out.println("Time: " + (endTs - startTs) + "ms");
+        System.out.println("Max: " + max);
     }
 
     public static String generateText(String letters, int length) {
